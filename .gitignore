@@ -8,3 +8,4 @@ articles/
 test*.mp3
 test*.wav
 test.py
+sql_app.db
