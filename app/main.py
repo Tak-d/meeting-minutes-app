@@ -112,3 +112,54 @@ async def stripe_webhook(request: Request):
             # send_email(customer_email, new_api_key)
 
     return {"status": "success"}
+
+from fastapi.responses import HTMLResponse
+import stripe
+
+@app.get("/success", response_class=HTMLResponse)
+async def success(session_id: str):
+    # Stripeからセッション情報を取得
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        customer_email = session.customer_details.email
+        
+        # DBからユーザーのAPIキーを検索
+        db = SessionLocal()
+        user = db.query(User).filter(User.email == customer_email).first()
+        db.close()
+        
+        if user:
+            api_key = user.api_key
+        else:
+            api_key = "APIキーが見つかりませんでした。時間をおいて再度お試しください。"
+            
+    except Exception as e:
+        api_key = f"エラーが発生しました: {str(e)}"
+
+    # 表示するHTML
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>お支払い完了</title>
+        <style>
+            body {{ font-family: sans-serif; text-align: center; padding: 50px; background: #f8f9fa; }}
+            .card {{ background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }}
+            h1 {{ color: #1E3A5F; }}
+            .key-box {{ background: #f0f4f8; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 18px; margin: 20px 0; word-break: break-all; border: 1px solid #cbd5e1; }}
+            .btn {{ display: inline-block; background: #1E3A5F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-top: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>お支払いありがとうございます！</h1>
+            <p>プロプランのAPIキーを発行しました。<br>以下のキーをアプリの「API Key」欄に貼り付けてご利用ください。</p>
+            <div class="key-box">{api_key}</div>
+            <p>このキーは大切に保管してください。</p>
+            <a href="/" class="btn">アプリに戻る</a>
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
